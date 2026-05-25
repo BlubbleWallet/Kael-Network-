@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Kael Network</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  :root {
+    --bg: #000;
+    --surface: #0d0d0d;
+    --surface2: #141414;
+    --border: rgba(255,255,255,0.07);
+    --muted: rgba(255,255,255,0.35);
+    --green: #3b82f6;
+  }
+
+  html, body {
+    background: var(--bg);
+    color: #fff;
+    font-family: -apple-system, 'SF Pro Display', 'SF Pro Text', BlinkMacSystemFont, sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .app {
+    max-width: 430px;
+    margin: 0 auto;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .screen { display: none; flex-direction: column; flex: 1; padding-bottom: 90px; overflow-y: auto; }
+  .screen.active { display: flex; }
+
+  /* TOPBAR */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 52px 22px 12px;
+    flex-shrink: 0;
+  }
+  .topbar-logo { font-size: 17px; font-weight: 600; letter-spacing: -0.3px; }
+  .topbar-logo span { color: var(--muted); font-weight: 400; }
+  .topbar-bal {
+    display: flex; align-items: center; gap: 7px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 5px 13px 5px 7px;
+    font-size: 13px; font-weight: 600;
+  }
+  .topbar-av {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: #222; display: flex; align-items: center;
+    justify-content: center; font-size: 10px; font-weight: 700;
+  }
+
+  /* ── HOME HERO ── */
+  .home-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px 20px 0;
+  }
+
+  /* Big ring */
+  .ring-wrap {
+    position: relative;
+    width: 280px; height: 280px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .ring-svg {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    transform: rotate(-90deg);
+  }
+  .ring-track { fill: none; stroke: rgba(255,255,255,0.07); stroke-width: 10; }
+  .ring-progress {
+    fill: none;
+    stroke: #fff;
+    stroke-width: 10;
+    stroke-linecap: round;
+    stroke-dasharray: 791;
+    stroke-dashoffset: 791;
+    transition: stroke-dashoffset 0.8s ease;
+  }
+  .ring-progress.active { stroke: #fff; }
+  .ring-progress.idle { stroke: rgba(255,255,255,0.15); }
+
+  @keyframes ring-glow {
+    0%, 100% { filter: drop-shadow(0 0 6px rgba(59,130,246,0.3)); }
+    50%       { filter: drop-shadow(0 0 20px rgba(59,130,246,0.8)); }
+  }
+  @keyframes ring-pulse-inner {
+    0%, 100% { box-shadow: 0 0 0 0px rgba(59,130,246,0); }
+    50%       { box-shadow: 0 0 20px 4px rgba(59,130,246,0.12); }
+  }
+  .ring-svg.mining { animation: ring-glow 2.5s ease-in-out infinite; }
+  .ring-progress.mining-arc { stroke: #3b82f6 !important; }
+  .ring-inner.mining { animation: ring-pulse-inner 2.5s ease-in-out infinite; }
+
+  /* Content inside ring */
+  .ring-inner {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    width: 220px; height: 220px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    gap: 2px;
+    z-index: 1;
+  }
+  .ring-bal-label {
+    font-size: 11px; font-weight: 600;
+    letter-spacing: 0.6px; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 2px;
+  }
+  .ring-bal-num {
+    font-size: 38px; font-weight: 700;
+    letter-spacing: -2px; line-height: 1;
+    margin-bottom: 8px;
+  }
+  .ring-rate {
+    font-size: 14px; font-weight: 600;
+    color: var(--green);
+    margin-bottom: 8px;
+  }
+  .ring-refs {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 13px; color: var(--muted); font-weight: 500;
+  }
+  .ring-refs svg { opacity: 0.5; }
+
+  /* Mining button */
+  .mine-btn {
+    margin-top: 28px;
+    width: 68px; height: 68px;
+    border-radius: 50%;
+    background: #fff;
+    border: none;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: transform 0.12s, opacity 0.12s;
+    box-shadow: 0 0 0 8px rgba(255,255,255,0.06);
+    flex-shrink: 0;
+  }
+  .mine-btn:active { transform: scale(0.93); opacity: 0.9; }
+  .mine-btn svg { width: 28px; height: 28px; }
+
+  .mine-btn-label {
+    margin-top: 10px;
+    font-size: 12px; font-weight: 600; color: var(--muted);
+    letter-spacing: 0.3px;
+  }
+
+  /* countdown strip */
+  .countdown-strip {
+    margin-top: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 10px 20px;
+    font-size: 12px; color: var(--muted);
+    display: flex; align-items: center; gap: 8px;
+    width: 100%;
+  }
+  .cd-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--green); flex-shrink: 0;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  .cd-dot.idle { background: rgba(255,255,255,0.2); animation: none; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .cd-val { font-weight: 600; color: #fff; margin-left: auto; font-variant-numeric: tabular-nums; font-size: 12px; }
+
+  /* stats row */
+  .stats-row {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 10px; margin: 20px 20px 0;
+  }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 18px; padding: 16px 18px;
+  }
+  .stat-label { font-size: 11px; color: var(--muted); margin-bottom: 5px; }
+  .stat-val { font-size: 20px; font-weight: 700; letter-spacing: -0.6px; }
+  .stat-val.green { color: var(--green); }
+
+  /* TGE */
+  .tge-bar {
+    margin: 12px 20px 0;
+    background: rgba(59,130,246,0.06);
+    border: 1px solid rgba(59,130,246,0.1);
+    border-radius: 14px;
+    padding: 11px 15px;
+    font-size: 12px; color: var(--muted); line-height: 1.5;
+  }
+  .tge-bar b { color: var(--green); font-weight: 600; }
+
+  /* SECTION */
+  .sec { font-size: 11px; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase; color: var(--muted); padding: 0 20px; margin-bottom: 12px; }
+
+  /* REFERRAL */
+  .ref-card {
+    margin: 8px 20px 16px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 24px; padding: 24px;
+  }
+  .ref-title { font-size: 18px; font-weight: 700; letter-spacing: -0.4px; margin-bottom: 6px; }
+  .ref-desc { font-size: 13px; color: var(--muted); margin-bottom: 20px; line-height: 1.5; }
+  .ref-code-row { display: flex; gap: 8px; margin-bottom: 20px; }
+  .ref-code {
+    flex: 1; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px 16px;
+    font-size: 15px; font-weight: 600; letter-spacing: 1px;
+    font-family: 'SF Mono', monospace;
+  }
+  .copy-btn {
+    background: #fff; color: #000; border: none;
+    border-radius: 12px; padding: 12px 18px;
+    font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer;
+  }
+  .copy-btn:active { opacity: 0.8; }
+  .ref-bonus-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+  .ref-bonus-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 14px; padding: 14px; }
+  .ref-bonus-val { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 2px; }
+  .ref-bonus-label { font-size: 11px; color: var(--muted); }
+  .ref-list-title { font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 12px; }
+  .ref-empty { font-size: 13px; color: var(--muted); text-align: center; padding: 16px 0; }
+  .ref-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .ref-item:last-child { border-bottom: none; }
+  .ref-item-av { width: 32px; height: 32px; border-radius: 50%; background: var(--surface2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+  .ref-item-info { flex: 1; }
+  .ref-item-name { font-size: 13px; font-weight: 600; }
+  .ref-item-time { font-size: 11px; color: var(--muted); }
+  .ref-item-pts { font-size: 13px; font-weight: 600; color: var(--green); }
+  .sim-btn { display: block; width: calc(100% - 40px); margin: 0 20px; padding: 14px; background: var(--surface2); color: #fff; border: 1px solid var(--border); border-radius: 14px; font-size: 14px; font-weight: 600; font-family: inherit; cursor: pointer; }
+
+  /* LEADERBOARD */
+  .lb-list { padding: 0 20px; display: flex; flex-direction: column; gap: 8px; }
+  .lb-item { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; }
+  .lb-item.top1 { border-color: rgba(255,215,0,0.22); }
+  .lb-item.top2 { border-color: rgba(200,200,200,0.15); }
+  .lb-item.top3 { border-color: rgba(200,120,60,0.18); }
+  .lb-item.me { border-color: rgba(255,255,255,0.18); background: rgba(255,255,255,0.03); }
+  .lb-rank { width: 28px; text-align: center; font-size: 14px; font-weight: 700; color: var(--muted); flex-shrink: 0; }
+  .lb-av { width: 36px; height: 36px; border-radius: 50%; background: var(--surface2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+  .lb-info { flex: 1; }
+  .lb-name { font-size: 14px; font-weight: 600; }
+  .lb-you { font-size: 10px; color: var(--muted); }
+  .lb-pts { font-size: 15px; font-weight: 700; }
+
+  /* PROFILE */
+  .profile-hero { padding: 16px 20px 24px; display: flex; flex-direction: column; align-items: center; }
+  .profile-av-big { width: 72px; height: 72px; border-radius: 50%; background: var(--surface2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 700; margin-bottom: 12px; }
+  .profile-name-big { font-size: 20px; font-weight: 700; letter-spacing: -0.4px; margin-bottom: 4px; }
+  .profile-joined { font-size: 13px; color: var(--muted); }
+  .profile-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 0 20px 20px; }
+  .profile-stat { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 14px 12px; text-align: center; }
+  .profile-stat-val { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; }
+  .profile-stat-label { font-size: 10px; color: var(--muted); margin-top: 3px; }
+  .profile-rows { padding: 0 20px; }
+  .profile-row { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .profile-row-label { font-size: 14px; font-weight: 500; }
+  .profile-row-val { font-size: 13px; color: var(--muted); }
+
+  /* BOTTOM NAV */
+  .bottom-nav {
+    position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 100%; max-width: 430px;
+    background: rgba(0,0,0,0.9);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border);
+    display: flex;
+    padding: 10px 0 max(10px, env(safe-area-inset-bottom));
+    z-index: 100;
+  }
+  .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; padding: 4px 0; }
+  .nav-icon { width: 22px; height: 22px; opacity: 0.3; transition: opacity 0.15s; }
+  .nav-item.active .nav-icon { opacity: 1; }
+  .nav-label { font-size: 10px; font-weight: 500; color: var(--muted); letter-spacing: 0.2px; }
+  .nav-item.active .nav-label { color: #fff; }
+
+  /* TOAST */
+  .toast { position: fixed; top: 60px; left: 50%; transform: translateX(-50%) translateY(-20px); background: rgba(22,22,22,0.96); border: 1px solid var(--border); border-radius: 24px; padding: 10px 20px; font-size: 13px; font-weight: 500; opacity: 0; transition: all 0.25s; pointer-events: none; z-index: 999; backdrop-filter: blur(12px); white-space: nowrap; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ONBOARDING / SPLASH */
+  .onboarding {
+    position: fixed; inset: 0; z-index: 200;
+    background: #000;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    max-width: 430px; margin: 0 auto;
+    transition: opacity 0.5s ease;
+  }
+  .onboarding.hidden { opacity: 0; pointer-events: none; }
+  .onboarding.gone { display: none; }
+
+  @keyframes splash-fadein {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes splash-shimmer {
+    0%   { background-position: -200% center; }
+    100% { background-position: 200% center; }
+  }
+
+  .splash-text-wrap {
+    animation: splash-fadein 0.6s ease both;
+  }
+  .splash-text {
+    font-size: 30px; font-weight: 700; letter-spacing: -0.8px;
+    background: linear-gradient(90deg, #fff 30%, rgba(255,255,255,0.15) 50%, #fff 70%);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: splash-shimmer 1.6s linear infinite;
+  }
+  .splash-text span {
+    font-weight: 400;
+  }
+
+  .ob-slides { flex: 1; overflow: hidden; position: relative; }
+  .ob-slide {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 40px 32px;
+    opacity: 0; transform: translateX(40px);
+    transition: all 0.35s ease;
+    pointer-events: none;
+  }
+  .ob-slide.active { opacity: 1; transform: translateX(0); pointer-events: auto; }
+  .ob-slide.prev { opacity: 0; transform: translateX(-40px); }
+
+  .ob-icon {
+    width: 90px; height: 90px; border-radius: 28px;
+    background: var(--surface2); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 32px;
+    font-size: 38px;
+  }
+  .ob-title {
+    font-size: 26px; font-weight: 700; letter-spacing: -0.6px;
+    text-align: center; margin-bottom: 14px; line-height: 1.2;
+  }
+  .ob-desc {
+    font-size: 15px; color: var(--muted); text-align: center;
+    line-height: 1.6; max-width: 300px;
+  }
+  .ob-desc b { color: #fff; font-weight: 600; }
+
+  /* username slide */
+  .ob-input {
+    width: 100%; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 16px;
+    padding: 16px 18px; font-size: 16px; font-weight: 600;
+    color: #fff; font-family: inherit; outline: none;
+    margin-top: 24px; text-align: center;
+    transition: border-color 0.2s;
+  }
+  .ob-input:focus { border-color: rgba(59,130,246,0.5); }
+  .ob-input::placeholder { color: var(--muted); font-weight: 400; }
+
+  /* dots */
+  .ob-dots {
+    display: flex; gap: 6px; justify-content: center;
+    padding: 20px 0 16px;
+  }
+  .ob-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    transition: all 0.3s;
+  }
+  .ob-dot.active { width: 20px; border-radius: 3px; background: #fff; }
+
+  /* next btn */
+  .ob-btn {
+    margin: 0 24px 40px;
+    padding: 16px; border-radius: 16px;
+    background: #fff; color: #000;
+    font-size: 16px; font-weight: 700; font-family: inherit;
+    border: none; cursor: pointer;
+    transition: opacity 0.15s, transform 0.12s;
+  }
+  .ob-btn:active { opacity: 0.85; transform: scale(0.98); }
+
+  ::-webkit-scrollbar { width: 0; }
+
+</style>
+</head>
+<body>
+
+<!-- ══ LOGIN SCREEN ══ -->
+<div id="login-screen" style="display:none;position:fixed;inset:0;z-index:200;background:#000;flex-direction:column;align-items:center;justify-content:center;max-width:430px;margin:0 auto;">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:0;padding:0 32px;width:100%;">
+    <!-- Logo -->
+    <div style="width:72px;height:72px;border-radius:24px;background:#141414;border:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;margin-bottom:28px;">
+      <svg width="36" height="36" viewBox="0 0 28 28" fill="none">
+        <path d="M16 3L6 16h8l-2 9 12-13h-8l2-9z" fill="#3b82f6"/>
+      </svg>
+    </div>
+    <div style="font-size:26px;font-weight:700;letter-spacing:-0.6px;margin-bottom:8px;">Kael Network</div>
+    <div style="font-size:14px;color:rgba(255,255,255,0.35);margin-bottom:48px;text-align:center;line-height:1.5;">Mine $KAL tokens daily.<br>Sign in to save your progress.</div>
+
+    <!-- Google Sign In Button -->
+    <button onclick="triggerGoogleLogin()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:12px;background:#fff;color:#000;border:none;border-radius:16px;padding:16px 24px;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;transition:opacity 0.15s;" onmousedown="this.style.opacity='0.85'" onmouseup="this.style.opacity='1'">
+      <svg width="20" height="20" viewBox="0 0 48 48">
+        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.36-8.16 2.36-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+        <path fill="none" d="M0 0h48v48H0z"/>
+      </svg>
+      Continue with Google
+    </button>
+
+    <div style="margin-top:24px;font-size:11px;color:rgba(255,255,255,0.2);text-align:center;line-height:1.6;">
+      By continuing, you agree to Kael Network's<br>Terms of Service and Privacy Policy
+    </div>
+  </div>
+</div>
+
+
+
+<div class="app">
+
+  <!-- ══ HOME ══ -->
+  <div class="screen active" id="screen-home">
+    <div class="topbar">
+      <div class="topbar-logo">Kael <span>Network</span></div>
+
+    </div>
+
+    <div class="home-hero">
+      <!-- Big ring with balance inside -->
+      <div class="ring-wrap">
+        <svg class="ring-svg" viewBox="0 0 280 280">
+          <circle class="ring-track" cx="140" cy="140" r="126"/>
+          <circle class="ring-progress idle" id="ring-prog" cx="140" cy="140" r="126"/>
+        </svg>
+        <div class="ring-inner">
+          <div class="ring-bal-label">Balance</div>
+          <div class="ring-bal-num" id="ring-bal">0</div>
+          <div class="ring-rate" id="ring-rate">+10 pts/hr</div>
+          <div class="ring-refs">
+            <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
+              <circle cx="6" cy="4" r="3" fill="#fff"/>
+              <circle cx="13" cy="4" r="2.5" fill="#fff"/>
+              <path d="M0 12c0-2.8 2.7-5 6-5s6 2.2 6 5" stroke="#fff" stroke-width="1.4" fill="none"/>
+              <path d="M13 9c1.5 0 3.5.7 3.5 3" stroke="#fff" stroke-width="1.4" fill="none"/>
+            </svg>
+            <span id="ring-refs">0 / 15</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mine button -->
+      <button class="mine-btn" id="mine-btn" onclick="toggleMining()">
+        <!-- lightning icon -->
+        <svg viewBox="0 0 28 28" fill="none" id="mine-icon-svg">
+          <path d="M16 3L6 16h8l-2 9 12-13h-8l2-9z" fill="#000"/>
+        </svg>
+      </button>
+      <div class="mine-btn-label" id="mine-btn-label">Start Mining</div>
+
+      <!-- Countdown strip -->
+      <div class="countdown-strip">
+        <div class="cd-dot idle" id="cd-dot"></div>
+        <span id="cd-text" style="color:var(--muted)">Tap to start your 24h session</span>
+        <span class="cd-val" id="cd-val"></span>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Total Earned</div>
+        <div class="stat-val" id="stat-total">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Sessions Done</div>
+        <div class="stat-val green" id="stat-sessions">0</div>
+      </div>
+    </div>
+
+
+  </div>
+
+  <!-- ══ REFERRAL ══ -->
+  <div class="screen" id="screen-ref">
+    <div class="topbar"><div class="topbar-logo">Referral</div></div>
+    <div class="ref-card">
+      <div class="ref-title">Invite & Earn</div>
+      <div class="ref-desc">Share your code and get <b style="color:#fff">+50 pts</b> for every friend who joins. Max 15 referrals.</div>
+      <div class="ref-code-row">
+        <div class="ref-code" id="ref-code">KAL-XXXX</div>
+        <button class="copy-btn" onclick="copyRef()">Copy</button>
+      </div>
+      <div class="ref-bonus-row">
+        <div class="ref-bonus-card">
+          <div class="ref-bonus-val" id="ref-earned">0</div>
+          <div class="ref-bonus-label">Pts from referrals</div>
+        </div>
+        <div class="ref-bonus-card">
+          <div class="ref-bonus-val" id="ref-count">0 / 15</div>
+          <div class="ref-bonus-label">Friends invited</div>
+        </div>
+      </div>
+      <div class="ref-list-title">Your Friends</div>
+      <div id="ref-list"><div class="ref-empty">No referrals yet</div></div>
+    </div>
+    <button class="sim-btn" onclick="simulateRef()">+ Simulate Referral (Demo)</button>
+  </div>
+
+  <!-- ══ LEADERBOARD ══ -->
+  <div class="screen" id="screen-lb">
+    <div class="topbar"><div class="topbar-logo">Leaderboard</div></div>
+    <div class="sec">Top Miners</div>
+    <div class="lb-list" id="lb-list"></div>
+  </div>
+
+  <!-- ══ PROFILE ══ -->
+  <div class="screen" id="screen-profile">
+    <div class="topbar"><div class="topbar-logo">Profile</div></div>
+    <div class="profile-hero">
+      <div class="profile-av-big" id="pav">K</div>
+      <div class="profile-name-big" id="pname">Miner</div>
+      <div class="profile-joined">Joined today</div>
+    </div>
+    <div class="profile-stats">
+      <div class="profile-stat"><div class="profile-stat-val" id="ps-pts">0</div><div class="profile-stat-label">Points</div></div>
+      <div class="profile-stat"><div class="profile-stat-val">5</div><div class="profile-stat-label">pts/day</div></div>
+      <div class="profile-stat"><div class="profile-stat-val" id="ps-refs">0</div><div class="profile-stat-label">Referrals</div></div>
+    </div>
+    <div class="profile-rows">
+      <div class="sec" style="padding:0;margin-bottom:10px">Info</div>
+      <div class="profile-row"><span class="profile-row-label">Username</span><span class="profile-row-val" id="pr-user">—</span></div>
+      <div class="profile-row"><span class="profile-row-label">Referral Code</span><span class="profile-row-val" id="pr-ref">—</span></div>
+      <div class="profile-row"><span class="profile-row-label">$KAL Allocation</span><span class="profile-row-val">Pending TGE</span></div>
+    </div>
+
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <div class="bottom-nav">
+    <div class="nav-item active" id="nav-home" onclick="switchTab('home')">
+      <svg class="nav-icon" viewBox="0 0 22 22" fill="none">
+        <path d="M3 9.5L11 3l8 6.5V19a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z" fill="#fff"/>
+        <path d="M8 20v-7h6v7" fill="#fff"/>
+      </svg>
+      <span class="nav-label">Home</span>
+    </div>
+    <div class="nav-item" id="nav-ref" onclick="switchTab('ref')">
+      <svg class="nav-icon" viewBox="0 0 22 22" fill="none">
+        <circle cx="8" cy="7" r="3" fill="#fff"/>
+        <circle cx="16" cy="7" r="2.5" fill="#fff"/>
+        <path d="M2 18c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="#fff" stroke-width="1.5" fill="none"/>
+        <path d="M16 13c1.7 0 4 .8 4 3" stroke="#fff" stroke-width="1.5" fill="none"/>
+      </svg>
+      <span class="nav-label">Referral</span>
+    </div>
+    <div class="nav-item" id="nav-lb" onclick="switchTab('lb')">
+      <svg class="nav-icon" viewBox="0 0 22 22" fill="none">
+        <rect x="3" y="12" width="4" height="8" rx="1" fill="#fff"/>
+        <rect x="9" y="7" width="4" height="13" rx="1" fill="#fff"/>
+        <rect x="15" y="3" width="4" height="17" rx="1" fill="#fff"/>
+      </svg>
+      <span class="nav-label">Leaderboard</span>
+    </div>
+    <div class="nav-item" id="nav-profile" onclick="switchTab('profile')">
+      <svg class="nav-icon" viewBox="0 0 22 22" fill="none">
+        <circle cx="11" cy="7" r="4" fill="#fff"/>
+        <path d="M2 19c0-4.4 4-8 9-8s9 3.6 9 8" stroke="#fff" stroke-width="1.5" fill="none"/>
+      </svg>
+      <span class="nav-label">Profile</span>
+    </div>
+  </div>
+</div>
+
+<!-- Version Footer - only visible on profile tab -->
+<div id="version-footer" style="display:none;position:fixed;bottom:90px;left:50%;transform:translateX(-50%);width:100%;max-width:430px;flex-direction:column;align-items:center;gap:3px;padding:8px 0;pointer-events:none;z-index:50;">
+  <div style="display:flex;align-items:center;gap:6px;">
+    <div style="width:5px;height:5px;border-radius:50%;background:rgba(59,130,246,0.5);"></div>
+    <span style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.3);letter-spacing:0.4px;">Kael Network</span>
+    <span style="font-size:11px;color:rgba(255,255,255,0.15);font-weight:400;">v0.1.0</span>
+  </div>
+  <span style="font-size:10px;color:rgba(255,255,255,0.13);letter-spacing:0.2px;">Early Access · Build 2025</span>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const BASE_RATE = 5;
+const REF_BOOST = 0.5;
+const SESSION_DURATION = 24 * 3600;
+const CIRCUMFERENCE = 2 * Math.PI * 126;
+const STORAGE_KEY = 'kael_state_v1';
+
+const GOOGLE_CLIENT_ID = '582837101126-m5h6ptc12g85jk5cl2m04oknmrugspa0.apps.googleusercontent.com';
+
+function triggerGoogleLogin() {
+  google.accounts.id.initialize({
+    client_id: GOOGLE_CLIENT_ID,
+    callback: handleGoogleLogin,
+    auto_select: false,
+  });
+  google.accounts.id.prompt((notification) => {
+    if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+      // Fallback: render button popup
+      google.accounts.id.renderButton(
+        document.createElement('div'),
+        { theme: 'outline', size: 'large' }
+      );
+    }
+  });
+}
+
+function handleGoogleLogin(response) {
+  // Decode JWT
+  const payload = JSON.parse(atob(response.credential.split('.')[1]));
+  const name = payload.name || payload.email.split('@')[0];
+  const email = payload.email;
+  const picture = payload.picture || '';
+
+  state.username = name;
+  state.email = email;
+  state.picture = picture;
+  saveState();
+
+  // Masuk app
+  document.getElementById('login-screen').style.display = 'none';
+  updateHome();
+  updateProfile();
+}
+
+function checkAuth() {
+  const ls = document.getElementById('login-screen');
+  if (!state.email) {
+    // Belum login, tampilkan login screen
+    ls.style.display = 'flex';
+    // Init google one tap
+    window.addEventListener('load', () => {
+      if (typeof google !== 'undefined') {
+        google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: handleGoogleLogin,
+          auto_select: true,
+        });
+        google.accounts.id.prompt();
+      }
+    });
+  } else {
+    ls.style.display = 'none';
+  }
+}
+
+
+function getMiningRate() {
+  return (BASE_RATE + (state.referrals.length * REF_BOOST)) / 24;
+}
+
+// ── PERSISTENCE ──────────────────────────────────────────────
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      balance: state.balance,
+      totalSessions: state.totalSessions,
+      referrals: state.referrals,
+      refCode: state.refCode,
+      username: state.username,
+      email: state.email,
+      picture: state.picture,
+      sessionStart: state.sessionStart,
+      sessionActive: state.sessionActive,
+      demoIdx: demoIdx,
+    }));
+  } catch(e) {}
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch(e) { return null; }
+}
+
+// ── STATE ─────────────────────────────────────────────────────
+const saved = loadState();
+
+const state = {
+  balance:        saved?.balance        ?? 0,
+  totalSessions:  saved?.totalSessions  ?? 0,
+  referrals:      saved?.referrals      ?? [],
+  refCode:        saved?.refCode        ?? ('KAL-' + Math.random().toString(36).substring(2,6).toUpperCase()),
+  username:       saved?.username       ?? '',
+  email:          saved?.email          ?? '',
+  picture:        saved?.picture        ?? '',
+  sessionStart:   saved?.sessionStart   ?? null,
+  sessionActive:  saved?.sessionActive  ?? false,
+};
+
+let demoIdx = saved?.demoIdx ?? 0;
+
+// ── HELPERS ───────────────────────────────────────────────────
+const fakeBoard = [
+  { name: 'CryptoKing', pts: 48200 },
+  { name: 'MineQueen', pts: 41500 },
+  { name: 'KaelOG',    pts: 37800 },
+  { name: 'Satoshi23', pts: 29100 },
+  { name: 'BaseMaxi',  pts: 21400 },
+  { name: 'WAGMI',     pts: 18900 },
+  { name: 'DeFiDave',  pts: 14200 },
+];
+
+function fmtNum(n) {
+  n = Math.floor(n * 10000) / 10000;
+  if (n >= 1e6) return (n/1e6).toFixed(4)+'M';
+  if (n >= 1e3) return (n/1e3).toFixed(4)+'K';
+  return n.toFixed(4);
+}
+function fmtShort(n) {
+  n = Math.floor(n);
+  if (n >= 1e6) return (n/1e6).toFixed(0)+'M';
+  if (n >= 1e3) return (n/1e3).toFixed(0)+'K';
+  return n.toLocaleString();
+}
+function fmtCountdown(s) {
+  s = Math.max(0, Math.floor(s));
+  const h = Math.floor(s/3600);
+  const m = Math.floor((s%3600)/60);
+  const sec = s%60;
+  return h+'h '+String(m).padStart(2,'0')+'m '+String(sec).padStart(2,'0')+'s';
+}
+
+function sessionEarned() {
+  if (!state.sessionActive || !state.sessionStart) return 0;
+  const elapsedHr = Math.min((Date.now()-state.sessionStart)/3600000, SESSION_DURATION/3600);
+  return elapsedHr * getMiningRate();
+}
+function sessionRemaining() {
+  if (!state.sessionActive) return 0;
+  return Math.max(0, SESSION_DURATION - (Date.now()-state.sessionStart)/1000);
+}
+function sessionProgress() {
+  if (!state.sessionActive) return 0;
+  return Math.min((Date.now()-state.sessionStart)/1000 / SESSION_DURATION, 1);
+}
+function isExpired() {
+  return state.sessionActive && sessionRemaining() <= 0;
+}
+
+// ── ACTIONS ───────────────────────────────────────────────────
+function autoCollect() {
+  if (isExpired()) {
+    state.balance += sessionEarned();
+    state.sessionStart = Date.now();
+    state.totalSessions++;
+    saveState();
+    showToast('⚡ Session collected & restarted!');
+  }
+}
+
+let _miningLock = false;
+function toggleMining() {
+  if (_miningLock) return;
+  _miningLock = true;
+  setTimeout(() => { _miningLock = false; }, 800);
+
+  autoCollect();
+  if (!state.sessionActive) {
+    state.sessionStart = Date.now();
+    state.sessionActive = true;
+    state.totalSessions++;
+    showToast('⚡ Mining started — 24h session active');
+  } else {
+    showToast('Session running — ' + fmtCountdown(sessionRemaining()));
+  }
+  saveState();
+  updateHome();
+}
+
+// ── UI UPDATES ────────────────────────────────────────────────
+function updateHome() {
+  const expired = isExpired();
+  const displayBal = state.balance + sessionEarned();
+
+  document.getElementById('ring-bal').textContent = fmtNum(displayBal);
+
+  const ringSvg = document.querySelector('.ring-svg');
+  const ringInner = document.querySelector('.ring-inner');
+  if (state.sessionActive && !expired) {
+    ringSvg.classList.add('mining');
+    ringInner.classList.add('mining');
+  } else {
+    ringSvg.classList.remove('mining');
+    ringInner.classList.remove('mining');
+  }
+
+  const prog = document.getElementById('ring-prog');
+  if (state.sessionActive && !expired) {
+    const offset = CIRCUMFERENCE * (1 - sessionProgress());
+    prog.style.strokeDashoffset = offset;
+    prog.classList.remove('idle');
+    prog.classList.add('mining-arc');
+    prog.style.stroke = '#3b82f6';
+  } else {
+    prog.style.strokeDashoffset = CIRCUMFERENCE;
+    prog.classList.remove('mining-arc');
+    prog.classList.add('idle');
+    prog.style.stroke = '';
+  }
+
+  const dailyRate = (BASE_RATE + state.referrals.length * REF_BOOST).toFixed(1);
+  document.getElementById('ring-rate').textContent = '+' + dailyRate + ' pts/day';
+  document.getElementById('ring-refs').textContent = state.referrals.length + ' / 15';
+
+  const iconSvg = document.getElementById('mine-icon-svg');
+  const btnLabel = document.getElementById('mine-btn-label');
+  const dot = document.getElementById('cd-dot');
+  const cdText = document.getElementById('cd-text');
+  const cdVal = document.getElementById('cd-val');
+
+  const btn = document.getElementById('mine-btn');
+  if (state.sessionActive) {
+    iconSvg.innerHTML = '<path d="M16 3L6 16h8l-2 9 12-13h-8l2-9z" fill="#000"/>';
+    btnLabel.textContent = 'Mining...';
+    dot.className = 'cd-dot';
+    cdText.textContent = 'Session ends in';
+    cdVal.textContent = fmtCountdown(sessionRemaining());
+    btn.style.pointerEvents = 'none';
+    btn.style.opacity = '0.5';
+  } else {
+    iconSvg.innerHTML = '<path d="M16 3L6 16h8l-2 9 12-13h-8l2-9z" fill="#000"/>';
+    btnLabel.textContent = 'Start Mining';
+    dot.className = 'cd-dot idle';
+    cdText.textContent = 'Tap to start your 24h session';
+    btn.style.pointerEvents = 'auto';
+    btn.style.opacity = '1';
+    cdVal.textContent = '';
+  }
+
+  document.getElementById('stat-total').textContent = fmtShort(displayBal);
+  document.getElementById('stat-sessions').textContent = state.totalSessions;
+}
+
+function updateLB() {
+  const displayBal = state.balance + sessionEarned();
+  const board = [...fakeBoard, { name: state.username, pts: displayBal, isMe: true }].sort((a,b)=>b.pts-a.pts);
+  const medals = ['🥇','🥈','🥉'];
+  const topCls = ['top1','top2','top3'];
+  document.getElementById('lb-list').innerHTML = board.map((item,i) => {
+    const r = i+1;
+    const cls = r<=3 ? topCls[r-1] : item.isMe ? 'me' : '';
+    const rankD = r<=3 ? medals[r-1] : r;
+    const youTag = item.isMe ? ' <span class="lb-you">(you)</span>' : '';
+    return `<div class="lb-item ${cls}">
+      <div class="lb-rank">${rankD}</div>
+      <div class="lb-av">${item.name.substring(0,2).toUpperCase()}</div>
+      <div class="lb-info"><div class="lb-name">${item.name}${youTag}</div></div>
+      <div class="lb-pts">${fmtShort(item.pts)}</div>
+    </div>`;
+  }).join('');
+}
+
+function updateRef() {
+  document.getElementById('ref-code').textContent = state.refCode;
+  document.getElementById('ref-count').textContent = state.referrals.length + ' / 15';
+  document.getElementById('ref-earned').textContent = fmtShort(state.referrals.length * 50);
+  document.getElementById('ref-list').innerHTML = state.referrals.length === 0
+    ? '<div class="ref-empty">No referrals yet</div>'
+    : state.referrals.map(r=>`
+      <div class="ref-item">
+        <div class="ref-item-av">${r.name.substring(0,2)}</div>
+        <div class="ref-item-info">
+          <div class="ref-item-name">${r.name}</div>
+          <div class="ref-item-time">Just now</div>
+        </div>
+        <div class="ref-item-pts">+50 pts</div>
+      </div>`).join('');
+}
+
+function updateProfile() {
+  const displayBal = state.balance + sessionEarned();
+  document.getElementById('pav').textContent = state.username[0];
+  document.getElementById('pname').textContent = state.username;
+  document.getElementById('pr-user').textContent = state.username;
+  document.getElementById('pr-ref').textContent = state.refCode;
+  document.getElementById('ps-pts').textContent = fmtShort(displayBal);
+  document.getElementById('ps-refs').textContent = state.referrals.length;
+}
+
+function copyRef() {
+  navigator.clipboard.writeText('https://kael.network/ref/'+state.refCode).then(()=>showToast('Link copied!'));
+}
+
+const demoNames = ['Alex M.','Sarah K.','DegenMax','CryptoJoe','BaseUser','WagmiGuy','MoonWatcher'];
+function simulateRef() {
+  if (state.referrals.length >= 15) { showToast('Max 15 referrals reached'); return; }
+  const name = demoNames[demoIdx++ % demoNames.length];
+  state.referrals.push({ name });
+  state.balance += 50;
+  showToast('🎉 ' + name + ' joined — +50 pts!');
+  saveState();
+  updateRef(); updateHome(); updateProfile();
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('screen-'+tab).classList.add('active');
+  document.getElementById('nav-'+tab).classList.add('active');
+  if (tab==='home') updateHome();
+  if (tab==='lb') updateLB();
+  if (tab==='ref') updateRef();
+  if (tab==='profile') updateProfile();
+  const vf = document.getElementById('version-footer');
+  vf.style.display = tab === 'profile' ? 'flex' : 'none';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(window._tt);
+  window._tt = setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+// Update semua tiap detik biar balance keliatan jalan
+setInterval(() => {
+  if (state.sessionActive) {
+    autoCollect();
+    updateHome();
+  }
+}, 1000);
+
+// Auto-save tiap 30 detik
+setInterval(() => {
+  if (state.sessionActive) saveState();
+}, 30000);
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) updateHome();
+  else saveState(); // save saat tab di-hide
+});
+
+window.addEventListener('beforeunload', saveState); // save saat close/refresh
+
+// Init
+autoCollect();
+document.getElementById('ref-code').textContent = state.refCode;
+updateHome();
+checkAuth();
+</script>
+</body>
+</html>
